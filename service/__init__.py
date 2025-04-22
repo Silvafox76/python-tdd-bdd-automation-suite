@@ -17,42 +17,36 @@
 """
 Package: service
 
-Package for the application models and service routes
-This module creates and configures the Flask app and sets up the logging
-and SQL database
+This module creates and configures the Flask app and sets up logging and the SQL database
 """
 import sys
 from flask import Flask
 from service import config
 from service.common import log_handlers
 
-# NOTE: Do not change the order of this code
-# The Flask app must be created
-# BEFORE you import modules that depend on it !!!
-
-# Create the Flask aoo
+# Create the Flask app
 app = Flask(__name__)  # pylint: disable=invalid-name
 
 # Load Configurations
 app.config.from_object(config)
 
-# Dependencies require we import the routes AFTER the Flask app is created
-# pylint: disable=wrong-import-position, wrong-import-order, cyclic-import
-from service import routes, models        # noqa: F401, E402
+# Import routes and models AFTER the app is created
+from service import routes, models  # noqa: F401, E402
 from service.common import error_handlers, cli_commands  # noqa: F401, E402
 
-# Set up logging for production
+# Set up logging for production environments
 log_handlers.init_logging(app, "gunicorn.error")
 
-app.logger.info(70 * "*")
-app.logger.info("  P E T   S E R V I C E   R U N N I N G  ".center(70, "*"))
-app.logger.info(70 * "*")
+# Log banner
+app.logger.info("*" * 70)
+app.logger.info("  P R O D U C T   S E R V I C E   R U N N I N G  ".center(70, "*"))
+app.logger.info("*" * 70)
 
+# Initialize the database
 try:
-    models.init_db(app)  # make our sqlalchemy tables
+    models.init_db(app)  # Create the SQLAlchemy tables
 except Exception as error:  # pylint: disable=broad-except
     app.logger.critical("%s: Cannot continue", error)
-    # gunicorn requires exit code 4 to stop spawning workers when they die
-    sys.exit(4)
+    sys.exit(4)  # Gunicorn expects exit code 4 to stop restarting the worker
 
 app.logger.info("Service initialized!")

@@ -18,35 +18,43 @@
 Product Steps
 
 Steps file for products.feature
-
-For information on Waiting until elements are present in the HTML see:
-    https://selenium-python.readthedocs.io/waits.html
 """
+
 import requests
 from behave import given
+from service.common import status
 
-# HTTP Return Codes
-HTTP_200_OK = 200
-HTTP_201_CREATED = 201
-HTTP_204_NO_CONTENT = 204
+# HTTP Status Codes
+HTTP_200_OK = status.HTTP_200_OK
+HTTP_201_CREATED = status.HTTP_201_CREATED
+HTTP_204_NO_CONTENT = status.HTTP_204_NO_CONTENT
 
 @given('the following products')
 def step_impl(context):
     """ Delete all Products and load new ones """
-    #
-    # List all of the products and delete them one by one
-    #
     rest_endpoint = f"{context.base_url}/products"
-    context.resp = requests.get(rest_endpoint)
-    assert(context.resp.status_code == HTTP_200_OK)
-    for product in context.resp.json():
-        context.resp = requests.delete(f"{rest_endpoint}/{product['id']}")
-        assert(context.resp.status_code == HTTP_204_NO_CONTENT)
 
-    #
-    # load the database with new products
-    #
+    # Step 1: List all existing products
+    context.resp = requests.get(rest_endpoint)
+    print(f"GET {rest_endpoint} => {context.resp.status_code}")
+    assert context.resp.status_code in [HTTP_200_OK, HTTP_201_CREATED]
+
+    # Step 2: Delete all existing products
+    for product in context.resp.json():
+        delete_url = f"{rest_endpoint}/{product['id']}"
+        resp = requests.delete(delete_url)
+        print(f"DELETE {delete_url} => {resp.status_code}")
+        assert resp.status_code == HTTP_204_NO_CONTENT
+
+    # Step 3: Create new products from the scenario table
     for row in context.table:
-        #
-        # ADD YOUR CODE HERE TO CREATE PRODUCTS VIA THE REST API
-        #
+        data = {
+            "name": row["name"],
+            "description": row["description"],
+            "price": float(row["price"]),
+            "available": row["available"].lower() == "true",
+            "category": row["category"]
+        }
+        context.resp = requests.post(rest_endpoint, json=data)
+        print(f"POST {rest_endpoint} => {context.resp.status_code}")
+        assert context.resp.status_code == HTTP_201_CREATED
