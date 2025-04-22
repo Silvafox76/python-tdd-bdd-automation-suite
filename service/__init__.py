@@ -19,6 +19,7 @@ Package: service
 
 This module creates and configures the Flask app and sets up logging and the SQL database
 """
+
 import sys
 from flask import Flask
 from service import config
@@ -43,10 +44,14 @@ app.logger.info("  P R O D U C T   S E R V I C E   R U N N I N G  ".center(70, "
 app.logger.info("*" * 70)
 
 # Initialize the database
-try:
-    models.init_db(app)  # Create the SQLAlchemy tables
-except Exception as error:  # pylint: disable=broad-except
-    app.logger.critical("%s: Cannot continue", error)
-    sys.exit(4)  # Gunicorn expects exit code 4 to stop restarting the worker
+def initialize_service():
+    """Initialize the service and database"""
+    try:
+        models.init_db(app)  # Create the SQLAlchemy tables
+    except Exception as error:  # pylint: disable=broad-except
+        app.logger.critical("%s: Cannot continue", error)
+        sys.exit(4)  # Gunicorn expects exit code 4 to stop restarting the worker
 
-app.logger.info("Service initialized!")
+    app.logger.info("Service initialized!")
+
+initialize_service()

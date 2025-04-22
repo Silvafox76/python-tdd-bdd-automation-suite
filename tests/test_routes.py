@@ -1,8 +1,6 @@
 ######################################################################
 # Copyright 2016, 2023 John J. Rofrano. All Rights Reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
 # https://www.apache.org/licenses/LICENSE-2.0
 ######################################################################
 
@@ -24,10 +22,7 @@ DATABASE_URI = os.getenv(
 )
 BASE_URL = "/products"
 
-######################################################################
-#  T E S T   C A S E S
-######################################################################
-# pylint: disable=too-many-public-methods
+
 class TestProductRoutes(TestCase):
     """Product Service tests"""
 
@@ -51,9 +46,6 @@ class TestProductRoutes(TestCase):
     def tearDown(self):
         db.session.remove()
 
-    ######################################################################
-    # Utility Methods
-    ######################################################################
     def _create_products(self, count: int = 1) -> list:
         products = []
         for _ in range(count):
@@ -71,9 +63,6 @@ class TestProductRoutes(TestCase):
         data = response.get_json()
         return len(data)
 
-    ######################################################################
-    # Test Index + Health
-    ######################################################################
     def test_index(self):
         response = self.client.get("/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -85,9 +74,6 @@ class TestProductRoutes(TestCase):
         data = response.get_json()
         self.assertEqual(data["message"], "OK")
 
-    ######################################################################
-    # CREATE Tests
-    ######################################################################
     def test_create_product(self):
         test_product = ProductFactory()
         logging.debug("Test Product: %s", test_product.serialize())
@@ -119,72 +105,49 @@ class TestProductRoutes(TestCase):
         response = self.client.post(BASE_URL, data={}, content_type="plain/text")
         self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
-    ######################################################################
-    # READ A PRODUCT - Happy Path
-    ######################################################################
     def test_get_product(self):
-        """It should Get a single Product"""
         test_product = self._create_products(1)[0]
         response = self.client.get(f"{BASE_URL}/{test_product.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.get_json()
         self.assertEqual(data["name"], test_product.name)
 
-    ######################################################################
-    # READ A PRODUCT - Sad Path
-    ######################################################################
     def test_get_product_not_found(self):
-        """It should not Get a Product that's not found"""
         response = self.client.get(f"{BASE_URL}/0")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         data = response.get_json()
         self.assertIn("was not found", data["message"])
 
-    ######################################################################
-    # UPDATE A PRODUCT
-    ######################################################################
     def test_update_product(self):
-        """It should Update an existing Product"""
         test_product = ProductFactory()
         response = self.client.post(BASE_URL, json=test_product.serialize())
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         new_product = response.get_json()
-        new_product["description"] = "unknown"
+        new_product["description"] = "updated"
 
         response = self.client.put(f"{BASE_URL}/{new_product['id']}", json=new_product)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         updated_product = response.get_json()
-        self.assertEqual(updated_product["description"], "unknown")
+        self.assertEqual(updated_product["description"], "updated")
 
-    ######################################################################
-    # DELETE A PRODUCT
-    ######################################################################
     def test_delete_product(self):
-        """It should Delete a Product"""
         products = self._create_products(3)
         product_count = self.get_product_count()
         test_product = products[0]
 
-        # Delete the product
         response = self.client.delete(f"{BASE_URL}/{test_product.id}")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(len(response.data), 0)
 
-        # Ensure it's gone
         response = self.client.get(f"{BASE_URL}/{test_product.id}")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-        # Verify the count is reduced
         new_count = self.get_product_count()
         self.assertEqual(new_count, product_count - 1)
 
-    ######################################################################
-    # Test List By Name
-    ######################################################################
     def test_list_products_by_name(self):
-        """It should list products by name"""
         product = ProductFactory(name="UniqueName")
         product.create()
 
@@ -193,13 +156,8 @@ class TestProductRoutes(TestCase):
         data = response.get_json()
         self.assertTrue(len(data) > 0)
         self.assertEqual(data[0]["name"], "UniqueName")
-    
-    ######################################################################
-    # Test List By Category
-    ######################################################################
-    
+
     def test_list_products_by_category(self):
-        """It should list products by category"""
         product = ProductFactory(category=Category.FOOD)
         product.create()
 
@@ -209,12 +167,7 @@ class TestProductRoutes(TestCase):
         self.assertTrue(len(data) > 0)
         self.assertEqual(data[0]["category"], "FOOD")
 
-    ######################################################################
-    # Test List By Availability
-    ######################################################################
-
     def test_list_products_by_availability(self):
-        """It should list products by availability"""
         product = ProductFactory(available=True)
         product.create()
 
@@ -223,14 +176,35 @@ class TestProductRoutes(TestCase):
         data = response.get_json()
         self.assertTrue(len(data) > 0)
         self.assertEqual(data[0]["available"], True)
-    
-    ######################################################################
-    # Test Invalid Category
-    ######################################################################
 
     def test_list_products_by_invalid_category(self):
-        """It should return 400 for invalid category"""
         response = self.client.get("/products", query_string={"category": "INVALID"})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-       
 
+    ######################################################################
+    # New Error Handler Tests for Full Coverage
+    ######################################################################
+
+    def test_error_404_handler(self):
+        """It should return 404 for invalid endpoint"""
+        response = self.client.get("/does-not-exist")
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Not Found", response.get_data(as_text=True))
+
+    def test_error_405_handler(self):
+        """It should return 405 for invalid method"""
+        response = self.client.put("/products")
+        self.assertEqual(response.status_code, 405)
+        self.assertIn("Method not Allowed", response.get_data(as_text=True))
+
+    def test_error_415_handler(self):
+        """It should return 415 for bad content type"""
+        response = self.client.post("/products", data="text/plain", content_type="text/plain")
+        self.assertEqual(response.status_code, 415)
+        self.assertIn("Unsupported Media Type", response.get_data(as_text=True))
+
+    def test_error_400_handler(self):
+        """It should return 400 for bad request payload"""
+        response = self.client.post("/products", json={})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Bad Request", response.get_data(as_text=True))
