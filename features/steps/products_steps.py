@@ -1,7 +1,5 @@
-from behave import given, when, then
+from behave import when, then
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 @when('I visit the "{page}"')
 def step_impl(context, page):
